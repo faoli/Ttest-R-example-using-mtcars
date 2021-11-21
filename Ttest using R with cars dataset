@@ -1,0 +1,119 @@
+#T TEST EXERCISE: Performing hypothesis testing by using T Test and the mtcars package. I am interested in finding out if the type of transmission of cars, in general,  have a significant effect in the consumption of fuel# 
+
+#1)Load and prepare the dataset#
+
+df <- mtcars
+
+#2) Inspect the structure of the data. I observe that all variables are by default numerical. However, both VS and AM columns are comprised by ones and zeroes and should be changed to logical(we are only changing the vs column in this case, because we will do something different for the am column#
+
+str(df) #Function to check the structure of the data#
+summary(df)#Function that returns basic descriptive statistics for each column#
+sapply(df,class) #Function to check column data types#
+
+df$vs <- as.logical(as.numeric(df$vs)) #Changing vs column data type to logical#
+
+#3) I label the am variable into automatic and manual categories: 0=automatic, 1=manual#
+
+df$am <- as.character(as.numeric(df$am))
+
+df$am <- gsub('0', 'AUTOMATIC', df$am)
+df$am <- gsub('1', 'MANUAL', df$am)
+
+#4) I could use the function "attach" to mtcars to work easily with it, but i am not going to do it for this exercise#
+
+#5) Generate descriptive statistics for each group. These include mean, sd, var, min, max, median, range, and quantile. I can do this by applying the func "summary", using the "describe" func in the Hmisc package, the "stat.desc" func in the pastecs package, or the "describe" func in psych package. Also I can do it one by one. For the sake of simplicity I will create two datasets (one for automatic and another one for manual) and use the describe function in psych package#
+
+dfauto <- subset(df, am == "AUTOMATIC") #Subsetting the automatic cars#
+dfmanual <- subset(df,am == "MANUAL") #Substetting the manual cars#
+
+dfauto2 <- subset(dfauto, select = -c(vs,am)) #Dropping the columns that are not numeric or integer#
+dfmanual2 <- subset(dfmanual, select = -c(vs,am)) #Dropping the columns that are not numeric or integer#
+
+#install.packages("Rtools")#
+#install.packages("psych")# #Installing psych#
+library(psych) #Loading psych#
+
+#7) I test for normality in each group since most statistical tests including correlation, regression, t-test, and analysis of variance (ANOVA) assume some certain characteristics about the data. They require the data to follow a normal distribution or Gaussian distribution. These tests are called parametric tests, because their validity depends on the distribution of the data.Normality and the other assumptions made by these tests should be taken seriously to draw reliable interpretation and conclusions of the research.Before using a parametric test, we should perform some preliminary tests to make sure that the test assumptions are met. In the situations where the assumptions are violated, non-paramatric tests are recommended.#
+
+#First I am going to test for normality by performing a visual analysis with both a density plot and a QQplot#
+
+#install.packages("ggpubr")#
+library(ggpubr)
+
+ggdensity(dfclean$mpg,
+          xlab = "Miles per galon",
+          ) # Density plot. I observe that it follows an almost Gaussian distribution#
+
+
+ggqqplot(dfclean$mpg,
+         ylab="Miles per galon",
+         xlab="Cars") # QQ Plot. I observe that it follows a relatively normal distribution#  
+
+
+#Test for normality using significant test. I will use the Shapiro-Wilk's test.#
+
+shapiro.test(dfclean$mpg) #The p-value is > 0.05 implying that the distributions of the data are not significantly different form a normal distribution. Therefore I can assume normality.#
+describe(dfauto2) #More advanced function that returns descriptive stats#
+describe(dfmanual2)
+
+#6) I will generate a box plot for each group (automatic and manual). I will directly compare the miles per galon consumption (mpg) by type of transmission(am). Taking out the column vs, because it is logical of course. Just by taking a look at both box plots side by side I can observe that, in general, manual cars consume more fuel than automatic ones.#
+
+dfclean <- subset(df, select = -c(vs))
+
+boxplot(dfclean$mpg ~ dfclean$am,
+        boxweb=.9,
+        main = "FUEL CONSUMPTION PER TYPE OF TRANSMISSION",
+        probs = c(0, 0.25, 0.5, 0.75, 1),  
+        ylab = "Miles per galon",
+        xlab = "TRANSMISSION",
+        ylim = c(8,35), las = 1,
+        col = "White")
+
+#To be extra sure I will perform normality test for each separate group individually#
+
+#Automatic normality test#
+
+ggdensity(dfauto2$mpg,
+          xlab = "Miles per galon",
+          ) # Density plot. I observe that it follows an almost Gaussian distribution#
+
+
+ggqqplot(dfauto2$mpg,
+         ylab="Miles per galon",
+         xlab = "Cars") # QQ Plot. I observe that it follows a relatively normal distribution#  
+
+
+#Test for normality using significant test. I will use the Shapiro-Wilk's test.#
+
+shapiro.test(dfauto2$mpg) #The p-value is > 0.05 implying that the distributions of the data are not significantly different form a normal distribution. Therefore I can assume normality.#
+
+#Manual normality test#
+
+ggdensity(dfmanual2$mpg,
+          xlab = "Miles per galon",
+          ) # Density plot. I observe that it follows an almost Gaussian distribution#
+
+
+ggqqplot(dfmanual2$mpg,
+         ylab="Miles per galon",
+         xlab="Cars") # QQ Plot. I observe that it follows a relatively normal distribution#  
+
+
+#Test for normality using significant test. I will use the Shapiro-Wilk's test.#
+
+shapiro.test(dfmanual2$mpg) #The p-value is > 0.5 implying that the distributions of the data are not significantly different form a normal distribution. Therefore I can assume normality.#
+
+#8) I perform Levene test comparing auto and manual cars. Equal variances across samples is called homogeneity of variances.Some statistical tests, such as two independent samples T-test and ANOVA test, assume that variances are equal across groups. The Bartlett’s test, Levene’s test or Fligner-Killeen’s test can be used to verify that assumption. In this case I can assume that the variance between the two groups is not equal, since the pvalue is < to 0.05. Therefore I must normalise the data during the T test, by using a log function, in order to make the variance statically similar#
+
+library(car)
+
+leveneTest(mpg ~ am, data = dfclean, center = mean)
+
+# In fact, when I apply the log function to the mpg variable, I can observe how the p-value is > to 0.05. Therefore making it statistically similar enough to apply a legit T test.
+
+leveneTest(log(mpg) ~ am, data = dfclean, center = mean)
+
+#8&9) I perform the T test with applying a log func to stabilise/normalise the data, since the  variance analysis with the levene test suggested that the variance is significantly different. The NULL hypothesys in this case is that the type of transmission in cars, on average,  has a statistically significant effect in the consumption of fuel. Since the p-value for this test is < 0.05 The t test showed there was a significant difference in miles per gallon between manual and automatic cars. I can conclude that manual cars consume more fuel compared to automatic cars.
+
+ttestautovsmanual <- t.test(log(dfauto$mpg), log(dfmanual$mpg), var.equal = TRUE )
+ttestautovsmanual
